@@ -25,32 +25,60 @@
 import socket
 import time
 from struct import pack
-import os
-from itertools import chain
-import sys
 
 
 class ArtNet(object):
-    def __init__(self, dst="255.255.255.255", port=0x1936):
+    def __init__(self, dst="255.255.255.255", port=0x1936, universe=3, umbrellas=12):
+        """
+            A Simple wrapper for ArtNET.
+
+            The umbreallas can only receive either RGB or WA information!
+            It is not possible to send them RGBWA.
+        """
+
+        # NOTE: Artnet supports only 512 light values per universe.
+        # By the way, we do not care that we should send at least 2 channels...
+        if umbrellas * 5 > 512:
+            raise ValueError("You can not send more than 512 channels per universe")
+
+        if 0 < universe > 255:
+            raise ValueError("Not a valid universe")
 
         self.seq = 0
+
         self.dst = dst
         self.port = port
+        self.universe = universe
+        self.umbrellas = umbrellas
+
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.universe = 3
 
-        #                    Protocol name               DMX         Version   Seq   Phy
+        # A reuseable header
+        #                    Protocol name               DMX         Version
         self.hdr = bytearray(b'Art-Net\x00') + bytearray([0, 0x50] + [0, 14])
 
     def sendrgb(self, r, g, b):
-        buf = bytearray([r, g, b, 0, 0] * 12)
+        """
+            Send RGB information to the umbreallas
+
+            param r: red channel (8 bit int)
+            param g: green channel (8 bit int)
+            param b: blue channel (8 bit int)
+        """
+        buf = bytearray([r, g, b, 0, 0] * self.umbrellas)
         self.sock.sendto(self.hdr + pack(">B", self.seq) + b'\x00' + pack("<H", self.universe) + pack(">H", len(buf)) + buf, (self.dst, self.port))
         self.seq = (self.seq + 1) % 256
 
 
     def sendwa(self, w, a):
-        buf = bytearray([0, 0, 0, a, w] * 12)
+        """
+            Send White/Amber information to the umbreallas
+
+            param w: white (cold white) channel (8 bit int)
+            param a: amber (warm white) channel (8 bit int)
+        """
+        buf = bytearray([0, 0, 0, a, w] * self.umbreallas)
         self.sock.sendto(self.hdr + pack(">B", self.seq) + b'\x00' + pack("<H", self.universe) + pack(">H", len(buf)) + buf, (self.dst, self.port))
         self.seq = (self.seq + 1) % 256
 
@@ -58,8 +86,6 @@ class ArtNet(object):
 
 
 if __name__ == "__main__":
-    # NOTE: Artnet supports only 512 light values per universe.
-    # Therefore we should in practise use two universes and parse the header...
 
     art = ArtNet(dst="10.20.255.255")
 
