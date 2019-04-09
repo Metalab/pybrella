@@ -78,7 +78,7 @@ class ArtNet(object):
             param w: white (cold white) channel (8 bit int)
             param a: amber (warm white) channel (8 bit int)
         """
-        buf = bytearray([0, 0, 0, a, w] * self.umbreallas)
+        buf = bytearray([0, 0, 0, a, w] * self.umbrellas)
         self.sock.sendto(self.hdr + pack(">B", self.seq) + b'\x00' + pack("<H", self.universe) + pack(">H", len(buf)) + buf, (self.dst, self.port))
         self.seq = (self.seq + 1) % 256
 
